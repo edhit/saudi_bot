@@ -1,94 +1,44 @@
 require('dotenv').config();
-const TelegramBot = require('node-telegram-bot-api');
+const { Telegraf } = require('telegraf');
 
-// Инициализация бота
-const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
+const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
 
-// Хранение курсов и дохода
-let exchangeRates = {
-    'RUB->USDT': { buy: 0, sell: 0 },
-    'USDT->SAR': { buy: 0, sell: 0 },
-    'SAR->RUB': { buy: 0, sell: 0 }
-};
+// Команда для расчета дохода
+bot.command('profit', (ctx) => {
+    const args = ctx.message.text.split(' ').slice(1);
 
-let totalIncome = 0;  // Переменная для хранения общего дохода
-
-// Команда для установки курсов
-bot.onText(/\/setrate (\w+) (\w+) (\d+(\.\d+)?) (\d+(\.\d+)?)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const fromCurrency = match[1].toUpperCase();
-    const toCurrency = match[2].toUpperCase();
-    const buyRate = parseFloat(match[3]);
-    const sellRate = parseFloat(match[5]);
-
-    const key = `${fromCurrency}->${toCurrency}`;
-
-    if (exchangeRates[key]) {
-        exchangeRates[key] = { buy: buyRate, sell: sellRate };
-        bot.sendMessage(chatId, `Курс для ${key} установлен:\nПокупка: ${buyRate}\nПродажа: ${sellRate}`);
-    } else {
-        bot.sendMessage(chatId, `Неверная пара валют: ${fromCurrency} -> ${toCurrency}`);
-    }
-});
-
-// Команда для покупки (RUB -> USDT)
-bot.onText(/\/buy (\d+(\.\d+)?)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const amount = parseFloat(match[1]);
-
-    const buyRate = exchangeRates['RUB->USDT'].buy;
-    if (buyRate > 0) {
-        const spent = amount * buyRate;
-        bot.sendMessage(chatId, `Вы купили ${amount} USDT за ${spent.toFixed(2)} RUB`);
-    } else {
-        bot.sendMessage(chatId, `Курс покупки RUB -> USDT не установлен.`);
-    }
-});
-
-// Команда для продажи (USDT -> SAR)
-bot.onText(/\/sell_usdt (\d+(\.\d+)?)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const amount = parseFloat(match[1]);
-
-    const sellRate = exchangeRates['USDT->SAR'].sell;
-    if (sellRate > 0) {
-        const earned = amount * sellRate;
-        totalIncome += earned;  // Увеличиваем общий доход
-        bot.sendMessage(chatId, `Вы продали ${amount} USDT за ${earned.toFixed(2)} SAR`);
-    } else {
-        bot.sendMessage(chatId, `Курс продажи USDT -> SAR не установлен.`);
-    }
-});
-
-// Команда для продажи (SAR -> RUB)
-bot.onText(/\/sell_sar (\d+(\.\d+)?)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const amount = parseFloat(match[1]);
-
-    const sellRate = exchangeRates['SAR->RUB'].sell;
-    if (sellRate > 0) {
-        const earned = amount * sellRate;
-        totalIncome += earned;  // Увеличиваем общий доход
-        bot.sendMessage(chatId, `Вы продали ${amount} SAR за ${earned.toFixed(2)} RUB`);
-    } else {
-        bot.sendMessage(chatId, `Курс продажи SAR -> RUB не установлен.`);
-    }
-});
-
-// Команда для просмотра текущих курсов
-bot.onText(/\/rates/, (msg) => {
-    const chatId = msg.chat.id;
-    let ratesMessage = 'Текущие курсы валют:\n';
-    
-    for (const [key, value] of Object.entries(exchangeRates)) {
-        ratesMessage += `${key}: Покупка = ${value.buy}, Продажа = ${value.sell}\n`;
+    if (args.length !== 4) {
+        ctx.reply('Используйте формат: /profit <сумма_RUB> <курс_USDT_RUB> <курс_USDT_SAR> <курс_SAR_RUB>');
+        return;
     }
 
-    bot.sendMessage(chatId, ratesMessage);
+    const [initialRub, rateUsdtRub, rateUsdtSar, rateSarRub] = args.map(Number);
+
+    if (isNaN(initialRub) || isNaN(rateUsdtRub) || isNaN(rateUsdtSar) || isNaN(rateSarRub)) {
+        ctx.reply('Пожалуйста, введите корректные числовые значения.');
+        return;
+    }
+
+    // Шаг 1: Покупаем USDT за RUB
+    const usdtAmount = initialRub / rateUsdtRub;
+
+    // Шаг 2: Продаем USDT за SAR
+    const sarAmount = usdtAmount * rateUsdtSar;
+
+    // Шаг 3: Продаем SAR за RUB
+    const finalRub = sarAmount * rateSarRub;
+
+    // Вычисляем прибыль
+    const profit = finalRub - initialRub;
+    const profitPercentage = (profit / initialRub) * 100;
+
+    // Вывод результата
+    ctx.reply(`Рубли после оборота: ${finalRub.toFixed(2)} RUB\nПроцент прибыли: ${profitPercentage.toFixed(2)}%`);
 });
 
-// Команда для просмотра общего дохода
-bot.onText(/\/income/, (msg) => {
-    const chatId = msg.chat.id;
-    bot.sendMessage(chatId, `Общий доход от операций: ${totalIncome.toFixed(2)} SAR`);
+// Запуск бота
+bot.launch().then(() => {
+    console.log('Бот запущен!');
+}).catch((err) => {
+    console.error('Ошибка при запуске бота:', err);
 });
