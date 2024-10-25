@@ -124,14 +124,11 @@ bot.command('profit_kzt', (ctx) => {
 bot.command('rates', (ctx) => {
     const rates = JSON.parse(fs.readFileSync('exchangeRates.json', 'utf-8'));
 
-    let message = 'Актуальные курсы валют:
-';
+    let message = 'Актуальные курсы валют:';
     for (let fromCurrency in rates) {
-        message += `${fromCurrency.toUpperCase()}:
-`;
+        message += `${fromCurrency.toUpperCase()}:`;
         for (let toCurrency in rates[fromCurrency]) {
-            message += `  ${fromCurrency.toUpperCase()} -> ${toCurrency.toUpperCase()}: ${rates[fromCurrency][toCurrency]}
-`;
+            message += `  ${fromCurrency.toUpperCase()} -> ${toCurrency.toUpperCase()}: ${rates[fromCurrency][toCurrency]}`;
         }
     }
 
