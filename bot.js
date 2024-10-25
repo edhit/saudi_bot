@@ -48,21 +48,21 @@ const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
 
 // Команда /start
 bot.start((ctx) => {
-    ctx.reply(`Привет! Я бот для расчета прибыли от оборота валют и конвертации валют.\n\n
-Мои команды:\n\n
-/profit - рассчитать прибыль RUB -> USDT -> SAR -> RUB\n\n
-/profit_kzt - рассчитать прибыль KZT -> USDT -> SAR -> KZT\n\n
-/rates - получить актуальные курсы валют\n\n
-/convert - конвертировать валюты\n\n
+    ctx.reply(`Привет! Я бот для расчета прибыли от оборота валют и конвертации валют.
+Мои команды:
+/profit - рассчитать прибыль RUB -> USDT -> SAR -> RUB
+/profit_kzt - рассчитать прибыль KZT -> USDT -> SAR -> KZT
+/rates - получить актуальные курсы валют
+/convert - конвертировать валюты
 /help - инструкция по использованию бота`);
 });
 
 // Команда /help
 bot.help((ctx) => {
-    ctx.reply(`Инструкция по использованию бота:\n\n
-1) /profit <сумма_RUB> <курс_USDT_RUB> <курс_USDT_SAR> <курс_SAR_RUB> - Рассчитать прибыль от оборота RUB -> USDT -> SAR -> RUB\n\n
-2) /profit_kzt <сумма_KZT> <курс_USDT_KZT> <курс_USDT_SAR> <курс_SAR_KZT> - Рассчитать прибыль от оборота KZT -> USDT -> SAR -> KZT\n\n
-3) /rates - Получить актуальные курсы валют (USDT, RUB, SAR, USD, KZT)\n\n
+    ctx.reply(`Инструкция по использованию бота:
+1) /profit <сумма_RUB> <курс_USDT_RUB> <курс_USDT_SAR> <курс_SAR_RUB> - Рассчитать прибыль от оборота RUB -> USDT -> SAR -> RUB
+2) /profit_kzt <сумма_KZT> <курс_USDT_KZT> <курс_USDT_SAR> <курс_SAR_KZT> - Рассчитать прибыль от оборота KZT -> USDT -> SAR -> KZT
+3) /rates - Получить актуальные курсы валют (USDT, RUB, SAR, USD, KZT)
 4) /convert <сумма> <валюта_из> <валюта_в> - Конвертировать указанную сумму одной валюты в другую.`);
 });
 
