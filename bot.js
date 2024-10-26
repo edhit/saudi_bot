@@ -6,21 +6,21 @@ const cheerio = require('cheerio');
 const fs = require('fs');
 const cron = require('node-cron');
 
-// Функция для парсинга курса валют с Google
+// Функция для получения курса валют с Bybit
 async function getExchangeRate(fromCurrency, toCurrency) {
-    const url = `https://www.google.com/search?q=${fromCurrency}+to+${toCurrency}`;
+    const url = `https://api.bybit.com/v2/public/tickers?symbol=${fromCurrency}${toCurrency}`;
+
     try {
         const { data } = await axios.get(url);
-        const $ = cheerio.load(data);
-        const rateText = $('div').attr("data-exchange-rate");
 
-        if (!rateText) {
+        // Проверяем, что данные получены корректно
+        if (data && data.result && data.result.length > 0) {
+            const rate = parseFloat(data.result[0].last_price);
+            return rate;
+        } else {
             console.error(`Не удалось найти курс для ${fromCurrency} к ${toCurrency}`);
             return null;
         }
-
-        const rate = parseFloat(rateText.replace(',', '.'));
-        return rate;
     } catch (error) {
         console.error(`Ошибка при получении курса для ${fromCurrency} к ${toCurrency}:`, error.message);
         return null;
