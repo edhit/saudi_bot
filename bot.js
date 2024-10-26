@@ -9,10 +9,22 @@ const cron = require('node-cron');
 // Функция для парсинга курса валют с Google
 async function getExchangeRate(fromCurrency, toCurrency) {
     const url = `https://www.google.com/search?q=${fromCurrency}+to+${toCurrency}`;
-    const { data } = await axios.get(url);
-    const $ = cheerio.load(data);
-    const rate = $('span.DFlfde').first().text();
-    return parseFloat(rate.replace(',', '.'));
+    try {
+        const { data } = await axios.get(url);
+        const $ = cheerio.load(data);
+        const rateText = $('span.DFlfde').first().text();
+
+        if (!rateText) {
+            console.error(`Не удалось найти курс для ${fromCurrency} к ${toCurrency}`);
+            return null;
+        }
+
+        const rate = parseFloat(rateText.replace(',', '.'));
+        return rate;
+    } catch (error) {
+        console.error(`Ошибка при получении курса для ${fromCurrency} к ${toCurrency}:`, error.message);
+        return null;
+    }
 }
 
 // Функция для обновления и сохранения курсов валют в JSON файл
