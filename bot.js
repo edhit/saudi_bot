@@ -12,7 +12,7 @@ async function getExchangeRate(fromCurrency, toCurrency) {
     try {
         const { data } = await axios.get(url);
         const $ = cheerio.load(data);
-        const rateText = $('span.DFlfde').first().text();
+        const rateText = $('div').attr("data-exchange-rate");
 
         if (!rateText) {
             console.error(`Не удалось найти курс для ${fromCurrency} к ${toCurrency}`);
