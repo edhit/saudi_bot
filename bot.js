@@ -4,29 +4,65 @@ const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
+const path = require('path');
 const cron = require('node-cron');
 
-// Функция для получения курса валют с Bybit
-async function getExchangeRate(fromCurrency, toCurrency) {
-    const url = `https://api.bybit.com/v2/public/tickers?symbol=${fromCurrency}${toCurrency}`;
+// Функция для получения курса с кэшированием на 6 часов
+async function getCachedFiatExchangeRate(fromCurrency, toCurrency) {
+    const cache = readCache();
+
+    // Проверяем, если в кэше есть свежие данные
+    const cachedRate = cache && cache[fromCurrency] && cache[fromCurrency][toCurrency];
+    const lastUpdated = cache && cache.timestamp ? new Date(cache.timestamp) : null;
+    const sixHours = 6 * 60 * 60 * 1000;
+
+    if (cachedRate && lastUpdated && (new Date() - lastUpdated) < sixHours) {
+        console.log('Возвращаем курс из кэша');
+        return cachedRate;
+    }
+
+    // Если данные устарели, запрашиваем новые
+    const rate = await getFiatExchangeRate(fromCurrency, toCurrency);
+
+    if (rate !== null) {
+        // Обновляем кэш
+        cache[fromCurrency] = cache[fromCurrency] || {};
+        cache[fromCurrency][toCurrency] = rate;
+        cache.timestamp = new Date().toISOString();
+        fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(cache));
+    }
+
+    return rate;
+}
+
+// Функция для реального запроса к API
+async function getFiatExchangeRate(fromCurrency, toCurrency) {
+    const apiKey = process.env.FREE_CURRENCY_API_KEY;
+    const url = `https://api.freecurrencyapi.com/v1/latest?apikey=${apiKey}&currencies=${toCurrency}&base_currency=${fromCurrency}`;
 
     try {
         const { data } = await axios.get(url);
 
-        // Проверяем, что данные получены корректно
-        if (data && data.result && data.result.length > 0) {
-            const rate = parseFloat(data.result[0].last_price);
-            return rate;
+        if (data && data.data && data.data[toCurrency]) {
+            return data.data[toCurrency];
         } else {
-            console.error(`Не удалось найти курс для ${fromCurrency} к ${toCurrency}`);
+            console.error(`Курс для ${fromCurrency}-${toCurrency} недоступен.`);
             return null;
         }
     } catch (error) {
-        console.error(`Ошибка при получении курса для ${fromCurrency} к ${toCurrency}:`, error.message);
+        console.error(`Ошибка при получении курса для ${fromCurrency}-${toCurrency}:`, error.message);
         return null;
     }
 }
 
+// Функция для чтения кэша
+function readCache() {
+    if (fs.existsSync(CACHE_FILE_PATH)) {
+        const cacheData = fs.readFileSync(CACHE_FILE_PATH, 'utf-8');
+        return JSON.parse(cacheData);
+    }
+    return {};
+}
 // Функция для обновления и сохранения курсов валют в JSON файл
 async function updateRates() {
     const currencies = ['usdt', 'rub', 'sar', 'usd', 'kzt'];
@@ -37,7 +73,7 @@ async function updateRates() {
         for (let toCurrency of currencies) {
             if (fromCurrency !== toCurrency) {
                 try {
-                    rates[fromCurrency][toCurrency] = await getExchangeRate(fromCurrency, toCurrency);
+                    rates[fromCurrency][toCurrency] = await getCachedFiatExchangeRate(fromCurrency, toCurrency);
                 } catch (error) {
                     console.error(`Ошибка при получении курса для ${fromCurrency} к ${toCurrency}:`, error);
                 }
@@ -46,8 +82,8 @@ async function updateRates() {
     }
 
     // Сохранение курсов в JSON файл
-    fs.writeFileSync('exchangeRates.json', JSON.stringify(rates, null, 2));
-    console.log('Курсы валют обновлены и сохранены в exchangeRates.json');
+    // fs.writeFileSync('exchangeRates.json', JSON.stringify(rates, null, 2));
+    // console.log('Курсы валют обновлены и сохранены в exchangeRates.json');
 }
 
 // Запускаем обновление курсов каждые 30 минут
