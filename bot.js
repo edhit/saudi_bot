@@ -1,11 +1,11 @@
-
 require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
-const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
+
+const CACHE_FILE_PATH = path.join(__dirname, 'cache.json');
 
 // Функция для получения курса с кэшированием на 6 часов
 async function getCachedFiatExchangeRate(fromCurrency, toCurrency) {
@@ -35,16 +35,15 @@ async function getCachedFiatExchangeRate(fromCurrency, toCurrency) {
     return rate;
 }
 
-// Функция для реального запроса к API
+// Функция для реального запроса к CoinGecko
 async function getFiatExchangeRate(fromCurrency, toCurrency) {
-    const apiKey = process.env.FREE_CURRENCY_API_KEY;
-    const url = `https://api.freecurrencyapi.com/v1/latest?apikey=${apiKey}&currencies=${toCurrency}&base_currency=${fromCurrency}`;
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${fromCurrency}&vs_currencies=${toCurrency}`;
 
     try {
         const { data } = await axios.get(url);
 
-        if (data && data.data && data.data[toCurrency]) {
-            return data.data[toCurrency];
+        if (data && data[fromCurrency] && data[fromCurrency][toCurrency]) {
+            return data[fromCurrency][toCurrency];
         } else {
             console.error(`Курс для ${fromCurrency}-${toCurrency} недоступен.`);
             return null;
@@ -63,9 +62,10 @@ function readCache() {
     }
     return {};
 }
+
 // Функция для обновления и сохранения курсов валют в JSON файл
 async function updateRates() {
-    const currencies = ['usdt', 'rub', 'sar', 'usd', 'kzt'];
+    const currencies = ['usd', 'rub', 'sar', 'usdt'];
     const rates = {};
 
     for (let fromCurrency of currencies) {
@@ -82,8 +82,8 @@ async function updateRates() {
     }
 
     // Сохранение курсов в JSON файл
-    // fs.writeFileSync('exchangeRates.json', JSON.stringify(rates, null, 2));
-    // console.log('Курсы валют обновлены и сохранены в exchangeRates.json');
+    fs.writeFileSync('exchangeRates.json', JSON.stringify(rates, null, 2));
+    console.log('Курсы валют обновлены и сохранены в exchangeRates.json');
 }
 
 // Запускаем обновление курсов каждые 30 минут
@@ -99,7 +99,6 @@ bot.start((ctx) => {
     ctx.reply(`Привет! Я бот для расчета прибыли от оборота валют и конвертации валют.
 Мои команды:
 /profit - рассчитать прибыль RUB -> USDT -> SAR -> RUB
-/profit_kzt - рассчитать прибыль KZT -> USDT -> SAR -> KZT
 /rates - получить актуальные курсы валют
 /convert - конвертировать валюты
 /help - инструкция по использованию бота`);
@@ -109,9 +108,8 @@ bot.start((ctx) => {
 bot.help((ctx) => {
     ctx.reply(`Инструкция по использованию бота:
 1) /profit <сумма_RUB> <курс_USDT_RUB> <курс_USDT_SAR> <курс_SAR_RUB> - Рассчитать прибыль от оборота RUB -> USDT -> SAR -> RUB
-2) /profit_kzt <сумма_KZT> <курс_USDT_KZT> <курс_USDT_SAR> <курс_SAR_KZT> - Рассчитать прибыль от оборота KZT -> USDT -> SAR -> KZT
-3) /rates - Получить актуальные курсы валют (USDT, RUB, SAR, USD, KZT)
-4) /convert <сумма> <валюта_из> <валюта_в> - Конвертировать указанную сумму одной валюты в другую.`);
+2) /rates - Получить актуальные курсы валют (USDT, RUB, SAR, USD)
+3) /convert <сумма> <валюта_из> <валюта_в> - Конвертировать указанную сумму одной валюты в другую.`);
 });
 
 // Команда для расчета дохода (RUB -> USDT -> SAR -> RUB)
@@ -141,40 +139,13 @@ bot.command('profit', (ctx) => {
 Процент прибыли: ${profitPercentage.toFixed(2)}%`);
 });
 
-// Команда для расчета дохода (KZT -> USDT -> SAR -> KZT)
-bot.command('profit_kzt', (ctx) => {
-    const args = ctx.message.text.split(' ').slice(1);
-
-    if (args.length !== 4) {
-        ctx.reply('Используйте формат: /profit_kzt <сумма_KZT> <курс_USDT_KZT> <курс_USDT_SAR> <курс_SAR_KZT>');
-        return;
-    }
-
-    const [initialKzt, rateUsdtKzt, rateUsdtSar, rateSarKzt] = args.map(Number);
-
-    if (isNaN(initialKzt) || isNaN(rateUsdtKzt) || isNaN(rateUsdtSar) || isNaN(rateSarKzt)) {
-        ctx.reply('Пожалуйста, введите корректные числовые значения.');
-        return;
-    }
-
-    const usdtAmount = initialKzt / rateUsdtKzt;
-    const sarAmount = usdtAmount * rateUsdtSar;
-    const finalKzt = sarAmount * rateSarKzt;
-
-    const profit = finalKzt - initialKzt;
-    const profitPercentage = (profit / initialKzt) * 100;
-
-    ctx.reply(`Тенге после оборота: ${finalKzt.toFixed(2)} KZT
-Процент прибыли: ${profitPercentage.toFixed(2)}%`);
-});
-
 // Команда для получения актуальных курсов валют
 bot.command('rates', (ctx) => {
     const rates = JSON.parse(fs.readFileSync('exchangeRates.json', 'utf-8'));
 
     let message = 'Актуальные курсы валют:';
     for (let fromCurrency in rates) {
-        message += `${fromCurrency.toUpperCase()}:`;
+        message += `\n${fromCurrency.toUpperCase()}:`;
         for (let toCurrency in rates[fromCurrency]) {
             message += `  ${fromCurrency.toUpperCase()} -> ${toCurrency.toUpperCase()}: ${rates[fromCurrency][toCurrency]}`;
         }
@@ -199,7 +170,7 @@ bot.command('convert', (ctx) => {
     const to = toCurrency.toLowerCase();
 
     if (!rates[from] || !rates[from][to]) {
-        ctx.reply('Неверные валюты. Пожалуйста, введите корректные коды валют (usdt, rub, sar, usd, kzt).');
+        ctx.reply('Неверные валюты. Пожалуйста, введите корректные коды валют (usdt, rub, sar, usd).');
         return;
     }
 
