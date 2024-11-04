@@ -25,7 +25,7 @@ bot.command('send', async (ctx) => {
                     [
                         {
                             text: 'Открыть форму',
-                            web_app: { url: webAppUrl }
+                            url: webAppUrl // Используем URL-кнопку вместо web_app
                         }
                     ]
                 ]
@@ -60,7 +60,7 @@ bot.action('confirm_send', async (ctx) => {
 
         // Отправка сообщения в группу
         await ctx.telegram.sendMessage(
-            `@${pending.groupName}`, // Укажите, чтобы бот знал, что это чат с названием группы
+            `@${pending.groupName}`, // Замените на фактический ID или @username группы
             'Откройте форму, нажав на кнопку ниже:',
             {
                 reply_markup: {
@@ -68,7 +68,7 @@ bot.action('confirm_send', async (ctx) => {
                         [
                             {
                                 text: 'Открыть форму',
-                                web_app: { url: pending.webAppUrl }
+                                url: pending.webAppUrl // Используем URL-кнопку вместо web_app
                             }
                         ]
                     ]
