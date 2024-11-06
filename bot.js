@@ -6,33 +6,37 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 // Хранилище для предварительных сообщений и групп
 let pendingMessages = {};
 
-// Обработчик команды /send для создания предварительного сообщения
+// Обработчик команды /send для создания предварительного сообщения с кастомным текстом
 bot.command('send', async (ctx) => {
     try {
-        const [command, groupName, webAppUrl] = ctx.message.text.split(' ');
+        const [command, groupName, webAppUrl, ...customTexts] = ctx.message.text.split(' ');
 
         if (!groupName || !webAppUrl) {
-            return ctx.reply('Пожалуйста, укажите название группы и ссылку на web_app. Пример: /send GroupName https://your-web-app-url.com');
+            return ctx.reply('Пожалуйста, укажите название группы, ссылку на web_app и при необходимости текст описания и кнопки. Пример: /send GroupName https://your-web-app-url.com "Описание кнопки" "Текст кнопки"');
         }
 
-        // Создаем сообщение с кнопкой для предварительного просмотра
-        const previewMessage = `Предварительное сообщение для группы "${groupName}":\n\nОткройте форму, нажав на кнопку ниже:`;
-        pendingMessages[ctx.from.id] = { groupName, webAppUrl };
+        // Разбор дополнительных параметров
+        const description = customTexts[0] ? customTexts[0].replace(/"/g, '') : 'Откройте форму, нажав на кнопку ниже:';
+        const buttonText = customTexts[1] ? customTexts[1].replace(/"/g, '') : 'Открыть форму';
 
-        await ctx.reply(previewMessage, {
+        // Сохраняем данные в памяти
+        pendingMessages[ctx.from.id] = { groupName, webAppUrl, description, buttonText };
+
+        // Создаем сообщение с кнопкой
+        await ctx.reply(description, {
             reply_markup: {
                 inline_keyboard: [
                     [
                         {
-                            text: 'Открыть форму',
-                            url: webAppUrl // Используем URL-кнопку вместо web_app
+                            text: buttonText,
+                            url: webAppUrl
                         }
                     ]
                 ]
             }
         });
 
-        // Отправляем запрос на подтверждение
+        // Запрос на подтверждение отправки
         await ctx.reply('Если сообщение выглядит правильно, подтвердите отправку, нажав на кнопку ниже.', {
             reply_markup: {
                 inline_keyboard: [
@@ -49,7 +53,7 @@ bot.command('send', async (ctx) => {
     }
 });
 
-// Обработчик нажатий на кнопки подтверждения или отмены
+// Обработчик подтверждения отправки
 bot.action('confirm_send', async (ctx) => {
     try {
         const pending = pendingMessages[ctx.from.id];
@@ -60,15 +64,15 @@ bot.action('confirm_send', async (ctx) => {
 
         // Отправка сообщения в группу
         await ctx.telegram.sendMessage(
-            `@${pending.groupName}`, // Замените на фактический ID или @username группы
-            'Откройте форму, нажав на кнопку ниже:',
+            `@${pending.groupName}`,
+            pending.description,
             {
                 reply_markup: {
                     inline_keyboard: [
                         [
                             {
-                                text: 'Открыть форму',
-                                url: pending.webAppUrl // Используем URL-кнопку вместо web_app
+                                text: pending.buttonText,
+                                url: pending.webAppUrl
                             }
                         ]
                     ]
@@ -76,7 +80,7 @@ bot.action('confirm_send', async (ctx) => {
             }
         );
 
-        // Очищаем временное хранилище и подтверждаем отправку
+        // Очищаем временные данные и подтверждаем отправку
         delete pendingMessages[ctx.from.id];
         ctx.reply('Сообщение успешно отправлено в группу.');
     } catch (error) {
