@@ -1,120 +1,208 @@
 require('dotenv').config();
-const { Telegraf, Markup } = require('telegraf');
-
+const {
+    Telegraf,
+    Markup
+} = require('telegraf');
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// Хранилище для предварительных сообщений и групп
+// Хранилище для загруженных медиа, сообщений и кнопок
+let mediaStorage = {};
 let pendingMessages = {};
-// Хранилище для загруженных фото
-let uploadedMedia = {};
 
-// Обработчик загрузки фото
+// Middleware для фильтрации сообщений по типу чата
+bot.use(async (ctx, next) => {
+    if (ctx.message && ctx.chat) {
+        if (ctx.chat.type === 'private') {
+            ctx.isPrivate = true; // Личный чат
+        } else if (['group', 'supergroup'].includes(ctx.chat.type)) {
+            ctx.isGroup = true; // Групповой чат
+        }
+    }
+    return next();
+});
+
+// Обработка загрузки фото
 bot.on('photo', async (ctx) => {
     try {
-        const photo = ctx.message.photo.pop(); // Получаем последнее (наибольшее) качество фото
-        const fileId = photo.file_id;
-
-        // Сохраняем `file_id` в памяти
-        uploadedMedia[ctx.from.id] = { fileId, type: 'photo' };
-
-        await ctx.reply('Фото успешно загружено. Теперь вы можете отправить его вместе с сообщением в группу.');
+        const photo = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+        mediaStorage[ctx.from.id] = {
+            type: 'photo',
+            fileId: photo
+        };
+        await ctx.reply('Фото загружено. Теперь используйте команду /send, чтобы отправить его в группу.');
     } catch (error) {
         console.error('Ошибка при загрузке фото:', error);
-        ctx.reply('Произошла ошибка при загрузке фото.');
+        ctx.reply('Не удалось загрузить фото. Попробуйте снова.');
     }
 });
 
-// Обработчик команды /send для отправки сообщения с загруженным фото
-bot.command('send', async (ctx) => {
+// Обработка загрузки видео
+bot.on('video', async (ctx) => {
     try {
-        const [command, groupName, webAppUrl, ...customTexts] = ctx.message.text.split(' ');
-
-        if (!groupName || !webAppUrl) {
-            return ctx.reply(
-                'Пожалуйста, укажите название группы, ссылку на web_app и при необходимости текст описания и кнопки.\nПример: /send GroupName https://your-web-app-url.com "Описание кнопки" "Текст кнопки"'
-            );
-        }
-
-        const description = customTexts[0] ? customTexts[0].replace(/"/g, '') : 'Откройте форму, нажав на кнопку ниже:';
-        const buttonText = customTexts[1] ? customTexts[1].replace(/"/g, '') : 'Открыть форму';
-
-        const media = uploadedMedia[ctx.from.id];
-        if (!media || media.type !== 'photo') {
-            return ctx.reply('Вы не загрузили фото. Отправьте фото перед использованием команды /send.');
-        }
-
-        // Сохраняем данные в памяти
-        pendingMessages[ctx.from.id] = { groupName, webAppUrl, description, buttonText, fileId: media.fileId };
-
-        // Создаем предварительный просмотр
-        await ctx.replyWithPhoto(media.fileId, {
-            caption: description,
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: buttonText, url: webAppUrl }]
-                ]
-            }
-        });
-
-        // Запрос на подтверждение отправки
-        await ctx.reply('Если сообщение выглядит правильно, подтвердите отправку, нажав на кнопку ниже.', {
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        { text: 'Подтвердить отправку', callback_data: 'confirm_send' },
-                        { text: 'Отменить', callback_data: 'cancel_send' }
-                    ]
-                ]
-            }
-        });
+        const video = ctx.message.video.file_id;
+        mediaStorage[ctx.from.id] = {
+            type: 'video',
+            fileId: video
+        };
+        await ctx.reply('Видео загружено. Теперь используйте команду /send, чтобы отправить его в группу.');
     } catch (error) {
-        console.error('Ошибка при создании предварительного сообщения:', error);
-        ctx.reply('Произошла ошибка при создании сообщения.');
+        console.error('Ошибка при загрузке видео:', error);
+        ctx.reply('Не удалось загрузить видео. Попробуйте снова.');
     }
 });
 
-// Обработчик подтверждения отправки
+// Обработка команды /send
+bot.command('send', async (ctx) => {
+    const args = ctx.message.text.split(' ');
+    const [command, groupName, webAppUrl] = args;
+
+    if (!groupName || !webAppUrl) {
+        return ctx.reply(
+            'Пожалуйста, укажите название группы и ссылку на web_app.\n' +
+            'Пример: /send GroupName https://your-web-app-url.com'
+        );
+    }
+
+    const media = mediaStorage[ctx.from.id];
+    if (!media) {
+        return ctx.reply('Вы не загрузили медиа. Пожалуйста, сначала отправьте фото или видео, а затем используйте команду /send.');
+    }
+
+    pendingMessages[ctx.from.id] = {
+        groupName,
+        webAppUrl,
+        media
+    };
+    return ctx.reply('Введите текст для сообщения:');
+});
+
+// Обработка сообщений от пользователей (личный чат)
+bot.on('text', async (ctx, next) => {
+    if (ctx.isPrivate) {
+        try {
+            const pending = pendingMessages[ctx.from.id];
+
+            // Если сообщения в процессе отправки нет, ничего не делаем
+            if (!pending || pending.messageText) return;
+
+            // Если текст сообщения еще не задан, сохраняем его и просим текст для кнопки
+            if (!pending.messageText) {
+                pendingMessages[ctx.from.id].messageText = ctx.message.text;
+                return ctx.reply('Введите название кнопки:');
+            }
+
+            // Если текст кнопки еще не задан, сохраняем его
+            if (!pending.buttonText) {
+                pendingMessages[ctx.from.id].buttonText = ctx.message.text;
+
+                const {
+                    media,
+                    messageText,
+                    buttonText,
+                    webAppUrl
+                } = pending;
+
+                // Показываем предварительное сообщение
+                if (media.type === 'photo') {
+                    await ctx.replyWithPhoto(media.fileId, {
+                        caption: messageText,
+                        reply_markup: Markup.inlineKeyboard([
+                            [Markup.button.url(buttonText, webAppUrl)]
+                        ])
+                    });
+                } else if (media.type === 'video') {
+                    await ctx.replyWithVideo(media.fileId, {
+                        caption: messageText,
+                        reply_markup: Markup.inlineKeyboard([
+                            [Markup.button.url(buttonText, webAppUrl)]
+                        ])
+                    });
+                }
+
+                // Кнопки подтверждения
+                await ctx.reply('Если сообщение выглядит правильно, подтвердите отправку, нажав на кнопку ниже.', {
+                    reply_markup: Markup.inlineKeyboard([
+                        [Markup.button.callback('Подтвердить отправку', 'confirm_send')],
+                        [Markup.button.callback('Отменить', 'cancel_send')]
+                    ])
+                });
+            }
+        } catch (error) {
+            console.error('Ошибка при обработке личного сообщения:', error);
+        }
+    } else {
+        return next(); // Передаем управление следующему обработчику
+    }
+});
+
+// Обработка сообщений из групп
+bot.on('text', async (ctx) => {
+    if (ctx.isGroup) {
+        try {
+            await ctx.reply(
+                `Вы отправили сообщение в группе "${ctx.chat.title}":\n"${ctx.message.text}"`, {
+                    reply_to_message_id: ctx.message.message_id
+                } // Отвечаем на сообщение
+            );
+        } catch (error) {
+            console.error('Ошибка при обработке сообщения из группы:', error);
+        }
+    }
+});
+
+// Подтверждение отправки
 bot.action('confirm_send', async (ctx) => {
     try {
         const pending = pendingMessages[ctx.from.id];
-
         if (!pending) {
             return ctx.reply('Нет сообщения для подтверждения.');
         }
 
-        // Отправка фото в группу
-        await ctx.telegram.sendPhoto(
-            `@${pending.groupName}`,
-            pending.fileId,
-            {
-                caption: pending.description,
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: pending.buttonText, url: pending.webAppUrl }]
-                    ]
-                }
-            }
-        );
+        const {
+            groupName,
+            media,
+            messageText,
+            buttonText,
+            webAppUrl
+        } = pending;
 
-        // Очищаем временные данные и подтверждаем отправку
+        // Отправка сообщения в группу
+        if (media.type === 'photo') {
+            await ctx.telegram.sendPhoto(`@${groupName}`, media.fileId, {
+                caption: messageText,
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.url(buttonText, webAppUrl)]
+                ])
+            });
+        } else if (media.type === 'video') {
+            await ctx.telegram.sendVideo(`@${groupName}`, media.fileId, {
+                caption: messageText,
+                reply_markup: Markup.inlineKeyboard([
+                    [Markup.button.url(buttonText, webAppUrl)]
+                ])
+            });
+        }
+
+        await ctx.reply('Сообщение успешно отправлено в группу.');
+
+        // Очищаем временные данные
+        delete mediaStorage[ctx.from.id];
         delete pendingMessages[ctx.from.id];
-        delete uploadedMedia[ctx.from.id];
-        ctx.reply('Сообщение успешно отправлено в группу.');
     } catch (error) {
-        console.error('Ошибка при отправке сообщения в группу:', error);
-        ctx.reply('Не удалось отправить сообщение в группу.');
+        console.error('Ошибка при отправке сообщения:', error);
+        ctx.reply('Не удалось отправить сообщение. Попробуйте снова.');
     }
 });
 
-bot.action('cancel_send', (ctx) => {
+// Отмена отправки
+bot.action('cancel_send', async (ctx) => {
     delete pendingMessages[ctx.from.id];
-    delete uploadedMedia[ctx.from.id];
-    ctx.reply('Отправка сообщения отменена.');
+    await ctx.reply('Отправка сообщения отменена.');
 });
 
 // Запуск бота
 bot.launch()
-    .then(() => console.log('Бот запущен'))
+    .then(() => console.log('Бот запущен и готов к работе!'))
     .catch((err) => console.error('Ошибка при запуске бота:', err));
 
 // Остановка gracefully при завершении программы
