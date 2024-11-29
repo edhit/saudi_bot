@@ -9,18 +9,6 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 let mediaStorage = {};
 let pendingMessages = {};
 
-// Middleware для фильтрации сообщений по типу чата
-bot.use(async (ctx, next) => {
-    if (ctx.message && ctx.chat) {
-        if (ctx.chat.type === 'private') {
-            ctx.isPrivate = true; // Личный чат
-        } else if (['group', 'supergroup'].includes(ctx.chat.type)) {
-            ctx.isGroup = true; // Групповой чат
-        }
-    }
-    return next();
-});
-
 // Обработка загрузки фото
 bot.on('photo', async (ctx) => {
     try {
@@ -78,7 +66,7 @@ bot.command('send', async (ctx) => {
 
 // Обработка сообщений от пользователей (личный чат)
 bot.on('text', async (ctx, next) => {
-    if (ctx.isPrivate) {
+
         try {
             const pending = pendingMessages[ctx.from.id];
 
@@ -129,23 +117,6 @@ bot.on('text', async (ctx, next) => {
             }
         } catch (error) {
             console.error('Ошибка при обработке личного сообщения:', error);
-        }
-    } else {
-        return next(); // Передаем управление следующему обработчику
-    }
-});
-
-// Обработка сообщений из групп
-bot.on('text', async (ctx) => {
-    if (ctx.isGroup) {
-        try {
-            await ctx.reply(
-                `Вы отправили сообщение в группе "${ctx.chat.title}":\n"${ctx.message.text}"`, {
-                    reply_to_message_id: ctx.message.message_id
-                } // Отвечаем на сообщение
-            );
-        } catch (error) {
-            console.error('Ошибка при обработке сообщения из группы:', error);
         }
     }
 });
