@@ -14,7 +14,7 @@ RUN npm install
 COPY . .
 
 # Устанавливаем переменную окружения для токена Telegram
-ENV TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+ENV BOT_TOKEN=${BOT_TOKEN}
 
 # Запускаем бота
 CMD ["node", "bot.js"]
