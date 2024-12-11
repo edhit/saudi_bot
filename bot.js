@@ -75,7 +75,7 @@ bot.on('text', async (ctx) => {
     if (!pending.buttonText) {
       pendingMessages[ctx.from.id].buttonText = ctx.message.text;
 
-      const { media, messageText, buttonText, webAppUrl } = pending;
+      const { media, messageText, buttonText, webAppUrl } = pendingMessages[ctx.from.id];
 
       // Показываем предварительное сообщение
       if (media?.type === 'photo') {
