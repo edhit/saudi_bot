@@ -1,4 +1,4 @@
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf } = require('telegraf');
 require('dotenv').config();
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -47,17 +47,19 @@ bot.on('text', async (ctx) => {
 
     // Предварительный просмотр
     await ctx.reply(pending.messageText, {
-      reply_markup: Markup.inlineKeyboard([
-        [Markup.button.url(pending.buttonText, pending.webAppUrl)],
-      ]),
+      reply_markup: {
+        inline_keyboard: [[{ text: pending.buttonText, url: pending.webAppUrl }]],
+      },
     });
 
     // Подтверждение
     await ctx.reply('Если сообщение выглядит правильно, подтвердите отправку.', {
-      reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback('Подтвердить отправку', 'confirm_send')],
-        [Markup.button.callback('Отменить', 'cancel_send')],
-      ]),
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Подтвердить отправку', callback_data: 'confirm_send' }],
+          [{ text: 'Отменить', callback_data: 'cancel_send' }],
+        ],
+      },
     });
   }
 });
