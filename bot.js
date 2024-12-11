@@ -48,7 +48,12 @@ bot.on('text', async (ctx) => {
     // Предварительный просмотр
     await ctx.reply(pending.messageText, {
       reply_markup: {
-        inline_keyboard: [[{ text: pending.buttonText, url: pending.webAppUrl }]],
+        inline_keyboard: [
+          [{
+            text: pending.buttonText,
+            web_app: { url: pending.webAppUrl }
+          }]
+        ],
       },
     });
 
@@ -72,10 +77,15 @@ bot.action('confirm_send', async (ctx) => {
   const { groupName, messageText, buttonText, webAppUrl } = pending;
 
   try {
-    // Отправка сообщения с кнопкой в группу
+    // Отправка сообщения с кнопкой WebApp в группу
     await ctx.telegram.sendMessage(`@${groupName}`, messageText, {
       reply_markup: {
-        inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
+        inline_keyboard: [
+          [{
+            text: buttonText,
+            web_app: { url: webAppUrl }
+          }]
+        ],
       },
     });
 
