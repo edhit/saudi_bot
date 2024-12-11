@@ -82,9 +82,11 @@ bot.action('confirm_send', async (ctx) => {
 
     // Отправка сообщения в группу
     await ctx.telegram.sendMessage(`@${groupName}`, messageText, {
-      reply_markup: Markup.inlineKeyboard([
-        [Markup.button.url(buttonText, webAppUrl)],
-      ]),
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: buttonText, url: webAppUrl }],
+        ],
+      },
     });
 
     await ctx.reply('Сообщение успешно отправлено в группу.');
