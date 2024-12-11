@@ -3,10 +3,10 @@ require('dotenv').config();
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// Хранилище сообщений, ожидающих отправки
+// Хранилище сообщений
 let pendingMessages = {};
 
-// Обработка команды /send
+// Команда /send
 bot.command('send', async (ctx) => {
   const args = ctx.message.text.split(' ');
   const [command, groupName, webAppUrl] = args;
@@ -18,7 +18,6 @@ bot.command('send', async (ctx) => {
     );
   }
 
-  // Сохраняем данные о группе и ссылке
   pendingMessages[ctx.from.id] = {
     groupName,
     webAppUrl,
@@ -31,71 +30,60 @@ bot.command('send', async (ctx) => {
 
 // Обработка текстовых сообщений
 bot.on('text', async (ctx) => {
-  try {
-    const pending = pendingMessages[ctx.from.id];
+  const pending = pendingMessages[ctx.from.id];
 
-    // Если нет активного сообщения, ничего не делаем
-    if (!pending) return;
+  // Если нет ожидающего сообщения
+  if (!pending) return;
 
-    // Если текст сообщения ещё не задан, сохраняем его
-    if (!pending.messageText) {
-      pendingMessages[ctx.from.id].messageText = ctx.message.text;
-      return ctx.reply('Введите название кнопки:');
-    }
+  // Записываем текст сообщения
+  if (!pending.messageText) {
+    pending.messageText = ctx.message.text;
+    return ctx.reply('Введите название кнопки:');
+  }
 
-    // Если текст кнопки ещё не задан, сохраняем его
-    if (!pending.buttonText) {
-      pendingMessages[ctx.from.id].buttonText = ctx.message.text;
+  // Записываем текст кнопки
+  if (!pending.buttonText) {
+    pending.buttonText = ctx.message.text;
 
-      const { groupName, messageText, buttonText, webAppUrl } = pendingMessages[ctx.from.id];
+    // Предварительный просмотр
+    await ctx.reply(pending.messageText, {
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.url(pending.buttonText, pending.webAppUrl)],
+      ]),
+    });
 
-      // Показываем предварительное сообщение
-      await ctx.reply(messageText, {
-        reply_markup: Markup.inlineKeyboard([
-          [Markup.button.url(buttonText, webAppUrl)],
-        ]),
-      });
-
-      // Предлагаем подтвердить или отменить
-      await ctx.reply('Если сообщение выглядит правильно, подтвердите отправку, нажав на кнопку ниже.', {
-        reply_markup: Markup.inlineKeyboard([
-          [Markup.button.callback('Подтвердить отправку', 'confirm_send')],
-          [Markup.button.callback('Отменить', 'cancel_send')],
-        ]),
-      });
-    }
-  } catch (error) {
-    console.error('Ошибка при обработке текста:', error);
-    await ctx.reply('Произошла ошибка. Попробуйте снова.');
+    // Подтверждение
+    await ctx.reply('Если сообщение выглядит правильно, подтвердите отправку.', {
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('Подтвердить отправку', 'confirm_send')],
+        [Markup.button.callback('Отменить', 'cancel_send')],
+      ]),
+    });
   }
 });
 
 // Подтверждение отправки
 bot.action('confirm_send', async (ctx) => {
+  const pending = pendingMessages[ctx.from.id];
+  if (!pending) return ctx.reply('Нет сообщения для подтверждения.');
+
+  const { groupName, messageText, buttonText, webAppUrl } = pending;
+
   try {
-    const pending = pendingMessages[ctx.from.id];
-    if (!pending) {
-      return ctx.reply('Нет сообщения для подтверждения.');
-    }
-
-    const { groupName, messageText, buttonText, webAppUrl } = pending;
-
-    // Отправка сообщения в группу
+    // Отправка сообщения с кнопкой в группу
     await ctx.telegram.sendMessage(`@${groupName}`, messageText, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: buttonText, url: webAppUrl }],
-        ],
+        inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
       },
     });
 
     await ctx.reply('Сообщение успешно отправлено в группу.');
 
-    // Очищаем временные данные
+    // Очистка временных данных
     delete pendingMessages[ctx.from.id];
   } catch (error) {
     console.error('Ошибка при отправке сообщения:', error);
-    ctx.reply('Не удалось отправить сообщение. Попробуйте снова.');
+    ctx.reply('Не удалось отправить сообщение. Проверьте название группы или права доступа бота.');
   }
 });
 
