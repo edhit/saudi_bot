@@ -202,7 +202,7 @@ bot.action('confirm_send', async (ctx) => {
 bot.action('cancel_send', async (ctx) => {
   try {
     await deletePendingMessage(ctx.from.id);
-    ctx.reply('Message sending canceled.');
+    ctx.editMessageText('Message sending canceled.');
   } catch (error) {
     logger.error('Error canceling send:', error);
     ctx.reply('An error occurred while canceling. Please try again.');
