@@ -8,7 +8,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 const lang = {
   en: {
     media_added: 'Media added.',
-    start: '⚠️ Add the bot to the group as an admin to send a message.\n\nEnter the group link or group name:',
+    start: '⚠️ Add the bot to the group to send a message.\n\nEnter the group link or group name:',
     groupName: 'Enter link group or group name:',
     webAppUrl: 'Enter link for button:',
     messageText: 'Enter the message text:',
@@ -26,7 +26,7 @@ const lang = {
   },
   ru: {
     media_added: 'Медиа добавлено.',
-    start: '⚠️ Добавьте бота в группу как админ, чтобы отправить сообщение.\n\nВведите ссылку на группу или имя группы:',
+    start: '⚠️ Добавьте бота в свою группу, чтобы отправить сообщение.\n\nВведите ссылку на группу или имя группы:',
     groupName: 'Введите ссылку на группу или имя группы:',
     webAppUrl: 'Введите ссылку для кнопки:',
     messageText: 'Введите текст сообщения:',
@@ -44,7 +44,7 @@ const lang = {
   },
   ar: {
     media_added: 'تم إضافة الوسائط.',
-    start: '⚠️ أضف البوت إلى المجموعة كمسؤول لإرسال الرسالة.\n\nأدخل رابط المجموعة أو اسم المجموعة:',
+    start: '⚠️ أضف البوت إلى المجموعة لإرسال الرسالة.\n\nأدخل رابط المجموعة أو اسم المجموعة:',
     groupName: 'أدخل رابط المجموعة أو اسم المجموعة:',
     webAppUrl: 'أدخل رابط الزر:',
     messageText: 'أدخل نص الرسالة:',
