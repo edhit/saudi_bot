@@ -77,6 +77,15 @@ const getLangText = (langCode, keys) => {
   return result;
 };
 
+const privateChatMiddleware = async (ctx, next) => {
+  const chatType = ctx.chat?.type;
+
+  if (chatType === "private") {
+    // Если чат личный, продолжаем обработку
+    await next();
+  } else return;
+};
+
 const languageMiddleware = (ctx, next) => {
   try {
     // Получаем язык из контекста
@@ -139,30 +148,35 @@ async function preview(ctx) {
     // Preview message
     if (pending.media) {
       if (pending.mediaType === 'photo') {
-        await ctx.replyWithPhoto(pending.media, {
-          caption: pending.messageText,
+        await ctx.telegram.sendPhoto(ctx.chat.id, pending.media, {
+          entities: pending.messageText.entities,
+          caption: pending.messageText.text,
+          disable_web_page_preview: true,
           reply_markup: {
             inline_keyboard: [[{ text: pending.buttonText, url: pending.webAppUrl }]],
           },
         });
       } else if (pending.mediaType === 'video') {
-        await ctx.replyWithVideo(pending.media, {
-          caption: pending.messageText,
+        await ctx.telegram.sendVideo(ctx.chat.id, pending.media, {
+          entities: pending.messageText.entities,
+          caption: pending.messageText.text,
+          disable_web_page_preview: true,
           reply_markup: {
             inline_keyboard: [[{ text: pending.buttonText, url: pending.webAppUrl }]],
           },
         });
       }
     } else {
-      await ctx.reply(pending.messageText, {
+      await ctx.telegram.sendMessage(ctx.chat.id, pending.messageText.text, {
+        entities: pending.messageText.entities,
+        disable_web_page_preview: true,
         reply_markup: {
           inline_keyboard: [[{ text: pending.buttonText, url: pending.webAppUrl }]],
         },
-        parse_mode: 'HTML',
       });
     }
 
-    await ctx.reply(`${getLangText(ctx.state.language, ['check_message'])} `, {
+    await ctx.reply(`${getLangText(ctx.state.language, ['check_message'])}`, {
       reply_markup: {
         inline_keyboard: [
           [{ text: `${getLangText(ctx.state.language, ['btn_confirm'])}`, callback_data: 'confirm_send' }],
@@ -172,7 +186,7 @@ async function preview(ctx) {
     });
   } catch (error) {
     logger.error('Error during preview:', error);
-    ctx.reply(`${getLangText(ctx.state.language, ['error'])}`);
+    ctx.reply(`${getLangText(ctx.state.language, ['error'])}\n\n ${error.message}`);
   }
 }
 
@@ -191,7 +205,18 @@ async function checkStringType(input) {
 
 
 // Command /start
-bot.command('start',languageMiddleware, async (ctx) => {
+bot.command('start', privateChatMiddleware, languageMiddleware, async (ctx) => {
+
+  // await preview(ctx)
+  // return
+  // const pending = await getPendingMessage(ctx.from.id);
+
+  // await ctx.telegram.sendMessage(ctx.chat.id, pending.messageText.text, {
+  //   entities: pending.messageText.entities
+  // });
+  // return
+  // return
+  
   try {
     ctx.reply(getLangText(ctx.state.language, ['start']));
 
@@ -211,7 +236,8 @@ bot.command('start',languageMiddleware, async (ctx) => {
 });
 
 // Handle text messages and media
-bot.on('message', languageMiddleware, async (ctx) => {
+bot.on('message', privateChatMiddleware, languageMiddleware, async (ctx) => {
+
   try {
     const pending = await getPendingMessage(ctx.from.id);
 
@@ -261,13 +287,13 @@ bot.on('message', languageMiddleware, async (ctx) => {
 
     // Save message text
     if (!pending.messageText) {
-      pending.messageText = ctx.message.text;
+      pending.messageText = ctx.message;
       await setPendingMessage(ctx.from.id, pending);
       return ctx.reply(`${getLangText(ctx.state.language, ['buttonText'])}`);
     }
 
     // Save button text
-    if (!pending.buttonText) {
+    if (!pending.buttonText) {     
       pending.buttonText = ctx.message.text;
       await setPendingMessage(ctx.from.id, pending);
       await preview(ctx);
@@ -281,31 +307,37 @@ bot.on('message', languageMiddleware, async (ctx) => {
 
 
 // Confirm sending the message
-bot.action('confirm_send', languageMiddleware, async (ctx) => {
+bot.action('confirm_send', privateChatMiddleware, languageMiddleware, async (ctx) => {
   try {
     const pending = await getPendingMessage(ctx.from.id);
     if (!pending) return ctx.reply(`${getLangText(ctx.state.language, ['check_message'])} `);
 
     const { groupName, messageText, buttonText, webAppUrl, media, mediaType } = pending;
-
+    
     if (media) {
       if (mediaType === 'photo') {
         await ctx.telegram.sendPhoto(`${groupName}`, media, {
-          caption: messageText,
+          caption: messageText.text,
+          entities: messageText.entities,
+          disable_web_page_preview: true,
           reply_markup: {
             inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
           },
         });
       } else if (mediaType === 'video') {
         await ctx.telegram.sendVideo(`${groupName}`, media, {
-          caption: messageText,
+          caption: messageText.text,
+          entities: messageText.entities,
+          disable_web_page_preview: true,
           reply_markup: {
             inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
           },
         });
       }
     } else {
-      await ctx.telegram.sendMessage(`${groupName}`, messageText, {
+      await ctx.telegram.sendMessage(`${groupName}`, messageText.text, {
+        entities: messageText.entities,
+        disable_web_page_preview: true,
         reply_markup: {
           inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
         },
@@ -323,7 +355,7 @@ bot.action('confirm_send', languageMiddleware, async (ctx) => {
 });
 
 // Cancel sending the message
-bot.action('cancel_send', languageMiddleware, async (ctx) => {
+bot.action('cancel_send', privateChatMiddleware, languageMiddleware, async (ctx) => {
   try {
     await deletePendingMessage(ctx.from.id);
     ctx.editMessageText(`${getLangText(ctx.state.language, ['cancel'])}`);
