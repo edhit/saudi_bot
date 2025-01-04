@@ -70,7 +70,7 @@ async function preview(ctx) {
         reply_markup: {
           inline_keyboard: [[{ text: pending.buttonText, url: pending.webAppUrl }]],
         },
-        parse_mode: 'Markdown',
+        parse_mode: 'MarkdownV2',
       });
     }
 
