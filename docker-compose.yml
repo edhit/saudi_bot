@@ -29,5 +29,4 @@ volumes:
     driver: local
 
 networks:
-  botnet:
-    driver: bridge  # Defining a custom bridge network
+  internal:
