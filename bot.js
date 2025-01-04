@@ -7,7 +7,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // Redis setup
 const redis = new Redis({
-  host: process.env.REDIS_HOST || '127.0.0.1',
+  host: process.env.REDIS_HOST || 'redis',
   port: process.env.REDIS_PORT || 6379,
   password: process.env.REDIS_PASSWORD || null,
 });
@@ -182,7 +182,7 @@ bot.action('confirm_send', async (ctx) => {
     }
 
     // Send button in a separate message
-    await ctx.telegram.sendMessage(`@${groupName}`, 'Click the button below:', {
+    await ctx.telegram.sendMessage(`@${groupName}`, messageText, {
       reply_markup: {
         inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
       },
