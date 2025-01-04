@@ -168,25 +168,29 @@ bot.action('confirm_send', async (ctx) => {
 
     const { groupName, messageText, buttonText, webAppUrl, media, mediaType } = pending;
 
-    // Send message with media to group
     if (media) {
-      await ctx.telegram.sendMediaGroup(`@${groupName}`, [
-        {
-          type: mediaType,
-          media,
+      if (mediaType === 'photo') {
+        await ctx.telegram.sendPhoto(`@${groupName}`, media, {
           caption: messageText,
-        },
-      ]);
+          reply_markup: {
+            inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
+          },
+        });
+      } else if (mediaType === 'video') {
+        await ctx.telegram.sendVideo(`@${groupName}`, media, {
+          caption: messageText,
+          reply_markup: {
+            inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
+          },
+        });
+      }
     } else {
-      await ctx.telegram.sendMessage(`@${groupName}`, messageText);
+      await ctx.telegram.sendMessage(`@${groupName}`, messageText, {
+        reply_markup: {
+          inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
+        },
+      });
     }
-
-    // Send button in a separate message
-    await ctx.telegram.sendMessage(`@${groupName}`, messageText, {
-      reply_markup: {
-        inline_keyboard: [[{ text: buttonText, url: webAppUrl }]],
-      },
-    });
 
     await ctx.reply('The message has been successfully sent to the group.');
 
