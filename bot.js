@@ -192,7 +192,7 @@ bot.action('confirm_send', async (ctx) => {
       });
     }
 
-    await ctx.reply('The message has been successfully sent to the group.');
+    await ctx.editMessageText('The message has been successfully sent to the group.');
 
     // Clear temporary data
     await deletePendingMessage(ctx.from.id);
