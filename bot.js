@@ -142,7 +142,7 @@ bot.on('message', async (ctx) => {
     // Save message text
     if (!pending.messageText) {
       pending.messageText = ctx.message.text;
-      // await setPendingMessage(ctx.from.id, pending);
+      await setPendingMessage(ctx.from.id, pending);
       return ctx.reply('Enter the button text:');
     }
 
