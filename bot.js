@@ -8,13 +8,12 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 const lang = {
   en: {
     media_added: 'Media added.',
-    start: '⚠️ Add the bot to the group to send a message.\n\nEnter the group link or group name:',
-    groupName: 'Enter link group or group name:',
+    start: '⚠️ To send a message to a group, you must first add this bot to the group as an administrator with at least permission to send messages.\n\nThen enter the group link or username:',    groupName: 'Enter link group or group name:',
     webAppUrl: 'Enter link for button:',
     messageText: 'Enter the message text:',
     buttonText: 'Enter the button text:',
-    link_or_username: 'Enter link group or group name:\nhttps://t.me/sendbuttonongroup_bot or @sendbuttonongroup_bot',
-    link: 'Enter link:\nhttps://t.me/sendbuttonongroup_bot',
+    link_or_username: 'Enter group name:\nExample: @sendbuttonongroup_bot',
+    link: 'Enter link:\nhttps://t.me/sendButtonOnGroups_bot',
     no_preview: 'No message found to preview.',
     check_message: 'If the message looks correct, confirm sending it.',
     ok: 'The message has been successfully sent to the group.',
@@ -26,13 +25,12 @@ const lang = {
   },
   ru: {
     media_added: 'Медиа добавлено.',
-    start: '⚠️ Добавьте бота в свою группу, чтобы отправить сообщение.\n\nВведите ссылку на группу или имя группы:',
-    groupName: 'Введите ссылку на группу или имя группы:',
+    start: '⚠️ Чтобы отправить сообщение в группу, сначала добавьте этого бота в группу как администратора с правом как минимум отправки сообщений.\n\nЗатем введите ссылку на группу или её имя:',    groupName: 'Введите ссылку на группу или имя группы:',
     webAppUrl: 'Введите ссылку для кнопки:',
     messageText: 'Введите текст сообщения:',
     buttonText: 'Введите текст кнопки:',
-    link_or_username: 'Введите ссылку на группу или имя группы:\nhttps://t.me/sendbuttonongroup_bot или @sendbuttonongroup_bot',
-    link: 'Отправь ссылку:\nhttps://t.me/sendbuttonongroup_bot',
+    link_or_username: 'Введите имя группы:\nНапример: @sendbuttonongroup_bot',
+    link: 'Отправь ссылку:\nhttps://t.me/sendButtonOnGroups_bot',
     no_preview: 'Сообщение для предпросмотра не найдено.',
     check_message: 'Если сообщение выглядит правильно, подтвердите его отправку.',
     ok: 'Сообщение успешно отправлено в группу.',
@@ -44,13 +42,12 @@ const lang = {
   },
   ar: {
     media_added: 'تم إضافة الوسائط.',
-    start: '⚠️ أضف البوت إلى المجموعة لإرسال الرسالة.\n\nأدخل رابط المجموعة أو اسم المجموعة:',
-    groupName: 'أدخل رابط المجموعة أو اسم المجموعة:',
+    start: '⚠️ لإرسال رسالة إلى مجموعة، يجب أولاً إضافة هذا البوت كمشرف في المجموعة مع إذن إرسال الرسائل على الأقل.\n\nثم أدخل رابط المجموعة أو اسمها:',    groupName: 'أدخل رابط المجموعة أو اسم المجموعة:',
     webAppUrl: 'أدخل رابط الزر:',
     messageText: 'أدخل نص الرسالة:',
     buttonText: 'أدخل نص الزر:',
-    link_or_username: 'أدخل رابط المجموعة أو اسم المجموعة:\nhttps://t.me/sendbuttonongroup_bot أو @sendbuttonongroup_bot',
-    link: 'أدخل الرابط:\nhttps://t.me/sendbuttonongroup_bot',
+    link_or_username: 'أدخل اسم المجموعة:\n@sendbuttonongroup_bot',
+    link: 'أدخل الرابط:\nhttps://t.me/sendButtonOnGroups_bot',
     no_preview: 'لم يتم العثور على رسالة للمعاينة.',
     check_message: 'إذا كانت الرسالة تبدو صحيحة، قم بتأكيد الإرسال.',
     ok: 'تم إرسال الرسالة إلى المجموعة بنجاح.',
@@ -269,7 +266,7 @@ bot.on('message', privateChatMiddleware, languageMiddleware, async (ctx) => {
     // Save group name
     if (!pending.groupName) {
       const link_username = await checkStringType(ctx.message.text);
-      if (link_username !== 'link' && link_username !== 'username') return ctx.reply(`${getLangText(ctx.state.language, ['link_or_username'])}`);
+      if (link_username !== 'username') return ctx.reply(`${getLangText(ctx.state.language, ['link_or_username'])}`);
       pending.groupName = ctx.message.text;
       await setPendingMessage(ctx.from.id, pending);
       return ctx.reply(`${getLangText(ctx.state.language, ['webAppUrl'])}`);
@@ -277,8 +274,8 @@ bot.on('message', privateChatMiddleware, languageMiddleware, async (ctx) => {
 
     // Save group name
     if (!pending.webAppUrl) {
-      const link_username = await checkStringType(ctx.message.text);
-      if (link_username !== 'link') return ctx.reply(`${getLangText(ctx.state.language, ['link'])}`);
+      const link_url = await checkStringType(ctx.message.text);
+      if (link_url !== 'link') return ctx.reply(`${getLangText(ctx.state.language, ['link'])}`);
       pending.webAppUrl = ctx.message.text;
       await setPendingMessage(ctx.from.id, pending);
       return ctx.reply(`${getLangText(ctx.state.language, ['messageText'])}`);
